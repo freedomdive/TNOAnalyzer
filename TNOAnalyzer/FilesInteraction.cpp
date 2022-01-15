@@ -3,8 +3,6 @@
 #include <fstream>
 #include <iostream>
 
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp >
 using namespace std;
 
 extern void SaveLog(string& str);
@@ -54,8 +52,70 @@ FilesInteraction::~FilesInteraction()
 Data FilesInteraction::ParseLine(fstream& f) const
 {
 	Data pData{};
+
+	char buf[24];
+
+	char fakebuf[24 * 3];
 	
-	string s;
+	char fakebuf2[24 * 10 + 1];
+	
+	f.read(buf, sizeof(buf));
+
+	pData.t = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.a = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.e = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.incl = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.node = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.per = atof(buf);
+
+	f.read(fakebuf, sizeof(fakebuf));
+
+	f.read(buf, sizeof(buf));
+
+	pData.r = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.x = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.y = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.z = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.vx = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.vy = atof(buf);
+
+	f.read(buf, sizeof(buf));
+
+	pData.vz = atof(buf);
+
+	f.read(fakebuf2, sizeof(fakebuf2));
+	
+	/*string s;
 
 	getline(f, s);
 
@@ -75,7 +135,7 @@ Data FilesInteraction::ParseLine(fstream& f) const
 	pData.z = stod(vRes[13]);
 	pData.vx = stod(vRes[14]);
 	pData.vy = stod(vRes[15]);
-	pData.vz = stod(vRes[16]);
+	pData.vz = stod(vRes[16]);*/
 	
 	return pData;
 }
@@ -137,21 +197,21 @@ void FilesInteraction::ParseData(filesystem::path& pPath, Data* vData, int nSkip
 	SaveLog("End Reading Text Data " + pPath.string());
 }
 
-void FilesInteraction::ReadFiles(int iIndex , filesystem::path& pPath1, filesystem::path& pPath2, atomic_bool& bBinaryState1, atomic_bool& bBinaryState2, int iThreadNumber)
+void FilesInteraction::ReadFiles(int iIndex1, int iIndex2, filesystem::path& pPath1, filesystem::path& pPath2, fstream& f1, fstream& f2, atomic_bool& bBinaryState1, atomic_bool& bBinaryState2, int iThreadNumber)
 {
 
 	const auto pData1 = vData1[iThreadNumber];
 	//Если использован режим захвата всех данных в память, индекс первых данных соответствует индексу данных в памяти, иначе индексу текущего потока
-	const auto pData2 = vData2[Params::GetIni().bFullMemory ? iIndex : iThreadNumber];
+	const auto pData2 = vData2[Params::GetIni().bFullMemory ? iIndex2 : iThreadNumber];
 
 	
 	if (bBinaryState1 == false)
 	{
-		if (iIndex != iPrevIndex[iThreadNumber])
+		if (iIndex1 != iPrevIndex[iThreadNumber])
 		{
 			ParseData(pPath1, pData1, Params::GetIni().nSkipStrings1);
 
-			iPrevIndex[iThreadNumber] = iIndex;
+			iPrevIndex[iThreadNumber] = iIndex1;
 		}
 	}
 	if (Params::GetIni().bFullMemory == false && bBinaryState2 == false)
@@ -186,10 +246,10 @@ void FilesInteraction::ReadFiles(int iIndex , filesystem::path& pPath1, filesyst
 	
 	if (bBinaryState1 == true && bDontRead1 == false)
 	{
-		if (iIndex != iPrevIndex[iThreadNumber])
+		if (iIndex1 != iPrevIndex[iThreadNumber])
 		{
 			ReadBinaryData(pPath1, pData1, Params::GetIni().sBinaryData1);
-			iPrevIndex[iThreadNumber] = iIndex;
+			iPrevIndex[iThreadNumber] = iIndex1;
 		}
 	}
 	if (Params::GetIni().bFullMemory == false && bBinaryState2 == true && bDontRead2 == false)
@@ -208,7 +268,7 @@ void FilesInteraction::ReadFiles(int iIndex , filesystem::path& pPath1, filesyst
 
 	const string sPostfix = pPath1.filename().string().substr(Params::GetIni().sPrefixIn.length(), pPath1.filename().string().length() - 4 - Params::GetIni().sPrefixIn.length()) + "-" + pPath2.filename().string().substr(Params::GetIni().sPrefixIn.length(), pPath2.filename().string().length() - 4 - Params::GetIni().sPrefixIn.length());
 	
-	WriteResults(pData1, iMinIndex1, iMinIndex2, pResultDeltaR, pResultRho, sPostfix);
+	WriteResults(pData1, iMinIndex1, iMinIndex2, pResultDeltaR, pResultRho, sPostfix, f1, f2);
 
 
 	
@@ -216,21 +276,13 @@ void FilesInteraction::ReadFiles(int iIndex , filesystem::path& pPath1, filesyst
 	SaveLog("End Writing Results");
 }
 
-void FilesInteraction::WriteResults(Data* pData, int iMinIndex1, int iMinIndex2, const DeltaR& pResultDeltaR, const Rho& pResultRho, const string& sPostfix)
+void FilesInteraction::WriteResults(Data* pData, int iMinIndex1, int iMinIndex2, const DeltaR& pResultDeltaR, const Rho& pResultRho, const string& sPostfix, fstream& f1, fstream& f2)
 {
 	mWriteResults.lock();
 	
-	fstream fOut(Params::GetIni().sResults1 + "\\" + Params::GetIni().sPrefixOut1 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt", ios::out | ios::app);
+	f1 << pData[iMinIndex1].t << " " << pResultDeltaR.fDeltaR << " " << pResultDeltaR.fDeltaV << " " << pResultDeltaR.fR_H << " " << pResultDeltaR.fV2 << " " << pResultDeltaR.fsigmaR_H << " " << pResultDeltaR.fsigmaV2 << " " << sPostfix <<  endl;
 
-	fOut << pData[iMinIndex1].t << " " << pResultDeltaR.fDeltaR << " " << pResultDeltaR.fDeltaV << " " << pResultDeltaR.fR_H << " " << pResultDeltaR.fV2 << " " << pResultDeltaR.fsigmaR_H << " " << pResultDeltaR.fsigmaV2 << " " << sPostfix <<  endl;
-
-	fOut.close();
-
-	fOut.open(Params::GetIni().sResults2 + "\\" + Params::GetIni().sPrefixOut2 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt", ios::out | ios::app);
-	
-	fOut << pData[iMinIndex2].t << " " << pResultRho.fMetric2 << " " << pResultRho.pDeltaR.fDeltaR << " " << pResultRho.pDeltaR.fDeltaV << " " << pResultRho.pDeltaR.fR_H << " " << pResultRho.pDeltaR.fV2 << " " << pResultRho.pDeltaR.fsigmaR_H << " " << pResultRho.pDeltaR.fsigmaV2 << " " << sPostfix << endl;
-
-	fOut.close();
+	f2 << pData[iMinIndex2].t << " " << pResultRho.fMetric2 << " " << pResultRho.pDeltaR.fDeltaR << " " << pResultRho.pDeltaR.fDeltaV << " " << pResultRho.pDeltaR.fR_H << " " << pResultRho.pDeltaR.fV2 << " " << pResultRho.pDeltaR.fsigmaR_H << " " << pResultRho.pDeltaR.fsigmaV2 << " " << sPostfix << endl;
 
 	mWriteResults.unlock();
 }

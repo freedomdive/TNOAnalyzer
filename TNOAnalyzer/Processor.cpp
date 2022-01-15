@@ -43,7 +43,7 @@ void Processor::ReadDirectories()
 		}
 	}
 
-	
+	fstream f1, f2;
 	
 	filesystem::path pBinaryPath1(Params::GetIni().sBinaryData1);
 	filesystem::path pBinaryPath2(Params::GetIni().sBinaryData2);
@@ -66,19 +66,16 @@ void Processor::ReadDirectories()
 	{
 		filesystem::create_directories(pResults1);
 	}
-	else
+	
+	
+	if (filesystem::exists(Params::GetIni().sResults1 + "\\" + Params::GetIni().sPrefixOut1 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt"))
 	{
-		if (filesystem::exists(Params::GetIni().sResults1 + "\\" + Params::GetIni().sPrefixOut1 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt"))
-		{
-			filesystem::remove(Params::GetIni().sResults1 + "\\" + Params::GetIni().sPrefixOut1 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt");
-
-			fstream f(Params::GetIni().sResults1 + "\\" + Params::GetIni().sPrefixOut1 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt", ios::out);
-
-			f << Params::GetIni().sResultsFileHeader1 << endl;
-
-			f.close();
-		}
+		filesystem::remove(Params::GetIni().sResults1 + "\\" + Params::GetIni().sPrefixOut1 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt");
 	}
+
+	f1.open(Params::GetIni().sResults1 + "\\" + Params::GetIni().sPrefixOut1 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt", ios::out);
+
+	f1 << Params::GetIni().sResultsFileHeader1 << endl;
 
 	filesystem::path pResults2(Params::GetIni().sResults2);
 
@@ -86,19 +83,16 @@ void Processor::ReadDirectories()
 	{
 		filesystem::create_directories(pResults2);
 	}
-	else
+
+	
+	if (filesystem::exists(Params::GetIni().sResults2 + "\\" + Params::GetIni().sPrefixOut2 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt"))
 	{
-		if (filesystem::exists(Params::GetIni().sResults2 + "\\" + Params::GetIni().sPrefixOut2 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt"))
-		{
-			filesystem::remove(Params::GetIni().sResults2 + "\\" + Params::GetIni().sPrefixOut2 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt");
-
-			fstream f(Params::GetIni().sResults2 + "\\" + Params::GetIni().sPrefixOut2 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt", ios::out);
-
-			f << Params::GetIni().sResultsFileHeader2 << endl;
-
-			f.close();
-		}
+		filesystem::remove(Params::GetIni().sResults2 + "\\" + Params::GetIni().sPrefixOut2 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt");
 	}
+
+	f2.open(Params::GetIni().sResults2 + "\\" + Params::GetIni().sPrefixOut2 + Params::GetIni().sName1 + "_" + Params::GetIni().sName2 + ".txt", ios::out);
+
+	f2 << Params::GetIni().sResultsFileHeader2 << endl;
 
 	
 	if (Params::GetIni().bOnlyParseDataToBinary1 == true)
@@ -206,7 +200,7 @@ void Processor::ReadDirectories()
 	int nThreadsCount = min(Params::GetIni().nThreadsCount, vFileNames1.size());
 	
 	FilesInteraction pFilesInteraction(bBinaryPath1Set, bBinaryPath2Set, vFileNames2.size());
-
+	
 	
 	if (Params::GetIni().bOnlyParseDataToBinary1)
 	{
@@ -283,9 +277,9 @@ void Processor::ReadDirectories()
 
 		for (int iThread = 0; iThread < nThreadsCount; iThread++)
 		{
-			const int a = iThread * vFileNames1.size() / nThreadsCount;
+			const int a = iThread * vFileNames2.size() / nThreadsCount;
 
-			const int b = (iThread + 1) * vFileNames1.size() / nThreadsCount;
+			const int b = (iThread + 1) * vFileNames2.size() / nThreadsCount;
 
 			if (bBinaryData2 == true)
 			{
@@ -353,13 +347,13 @@ void Processor::ReadDirectories()
 
 		const int b = (iThread + 1) * vFileNames1.size() / nThreadsCount;
 
-		vThreads.emplace_back([&pFilesInteraction, &vFileNames1, &vFileNames2, &vBinaryState1, &vBinaryState2, a, b, iThread]()
+		vThreads.emplace_back([&pFilesInteraction, &vFileNames1, &vFileNames2, &vBinaryState1, &vBinaryState2, a, b, iThread, &f1, &f2]()
 			{
 				for (auto iIndex1 = a; iIndex1 < b; iIndex1++)
 				{
 					for (auto iIndex2 = 0; iIndex2 < vFileNames2.size(); iIndex2++)
 					{
-						pFilesInteraction.ReadFiles(iIndex1, vFileNames1[iIndex1], vFileNames2[iIndex2], vBinaryState1[iIndex1], vBinaryState2[iIndex2], iThread);
+						pFilesInteraction.ReadFiles(iIndex1, iIndex2, vFileNames1[iIndex1], vFileNames2[iIndex2], f1, f2, vBinaryState1[iIndex1], vBinaryState2[iIndex2], iThread);
 					}
 				}
 			});
@@ -371,6 +365,10 @@ void Processor::ReadDirectories()
 		it.join();
 	}
 
+	f1.close();
+
+	f2.close();
+	
 	cout << "Sum Time = " << clock() - t << endl;
 
 	SaveLog("Calc time = " + to_string(clock() - t));
