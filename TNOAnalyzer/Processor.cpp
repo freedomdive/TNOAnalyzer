@@ -287,7 +287,7 @@ void Processor::ReadDirectories()
 
 			const int b = (iThread + 1) * vFileNames1.size() / nThreadsCount;
 
-			if (bBinaryData1 == true)
+			if (bBinaryData2 == true)
 			{
 
 				vThreads.emplace_back([&pFilesInteraction, &vFileNames2, a, b]()
